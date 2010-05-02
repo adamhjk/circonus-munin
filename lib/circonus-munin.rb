@@ -62,13 +62,13 @@ class CirconusMuninServer
     xml_document = LibXML::XML::Document.new
     resmon_results = LibXML::XML::Node.new("ResmonResults")
 
-    munin.get_response("list")[0].split(" ").each do |metric|
+    munin.get_response("list")[0].split(" ").each do |service|
       resmon_result = LibXML::XML::Node.new("ResmonResult")
       resmon_result["module"] = "MUNIN"
-      resmon_result["metric"] = metric 
+      resmon_result["service"] = service 
 
       begin_time = Time.now
-      munin.get_response("fetch #{metric}").each do |line|
+      munin.get_response("fetch #{service}").each do |line|
         line =~ /^(.+)\.value\s+(.+)$/
         field = $1
         value = $2
@@ -96,7 +96,7 @@ class CirconusMuninServer
     end
   
     xml_document.root = resmon_results
-
+    
     Rack::Response.new(xml_document.to_s, 200).finish
   end
 end

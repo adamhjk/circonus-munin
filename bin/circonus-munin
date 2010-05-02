@@ -9,8 +9,7 @@ require 'circonus-munin'
 Rack::Handler::Thin.run(
     CirconusMuninServer.new,
     { 
-    :Host => ARGV[0],
-    :Port => ARGV[1] 
+      :Port => ARGV[0] 
     }
 )
 
