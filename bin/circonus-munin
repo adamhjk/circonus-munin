@@ -1,0 +1,16 @@
+#!/usr/bin/ruby
+
+$: << File.expand_path(File.join("..", "lib"))
+
+require 'rubygems'
+require 'thin'
+require 'circonus-munin'
+
+Rack::Handler::Thin.run(
+    CirconusMuninServer.new,
+    { 
+    :Host => ARGV[0],
+    :Port => ARGV[1] 
+    }
+)
+
