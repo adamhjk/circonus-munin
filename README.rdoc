@@ -1,6 +1,14 @@
 = circonus-munin
 
-Description goes here.
+Translates Munin output to Circonus/Reconnoiter style Resmon results.
+
+== Usage
+
+Run circonus-munin on the munin node you want monitored.  Start with:
+
+circonus-munin HOST PORT
+
+You can then add this as a circonus RESMON check.
 
 == Note on Patches/Pull Requests
  
