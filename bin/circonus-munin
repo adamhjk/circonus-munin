@@ -3,13 +3,16 @@
 $: << File.expand_path(File.join("..", "lib"))
 
 require 'rubygems'
+require 'eventmachine'
 require 'thin'
 require 'circonus-munin'
 
-Rack::Handler::Thin.run(
-    CirconusMuninServer.new,
-    { 
-      :Port => ARGV[0] 
-    }
-)
+EventMachine.run do
+  Rack::Handler::Thin.run(
+      CirconusMuninServer.new,
+      { 
+        :Port => ARGV[0] 
+      }
+  )
+end
 

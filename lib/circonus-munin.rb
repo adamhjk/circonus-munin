@@ -52,52 +52,78 @@ end
 
 class CirconusMuninServer
   def initialize
-    @munin = CirconusMunin.new
+    fetch_results(true)
+    EventMachine::add_periodic_timer(60) do
+      @results = fetch_results
+    end
+  end
+
+  def fetch_results(wait=false)
+    fetch_thread = Thread.new do
+      puts "Fetching results..."
+      munin = CirconusMunin.new
+
+      xml_document = LibXML::XML::Document.new
+      resmon_results = LibXML::XML::Node.new("ResmonResults")
+
+      munin.get_response("list")[0].split(" ").each do |service|
+        resmon_result = LibXML::XML::Node.new("ResmonResult")
+        resmon_result["service"] = service 
+
+        module_name = nil
+        munin.get_response("config #{service}").each do |configline|
+          if configline =~ /graph_category (.+)/
+            module_name = $1
+          end
+        end
+        resmon_result["module"] = module_name ? module_name : "other" 
+
+        begin_time = Time.now
+        munin.get_response("fetch #{service}").each do |line|
+          line =~ /^(.+)\.value\s+(.+)$/
+          field = $1
+          value = $2
+          metric = LibXML::XML::Node.new("metric")
+          metric["name"] = field
+          metric.content = value.to_s
+          resmon_result << metric
+        end
+        end_time = Time.now
+        runtime = end_time - begin_time
+
+        last_runtime_seconds = LibXML::XML::Node.new("last_runtime_seconds")
+        last_runtime_seconds.content = runtime.to_s
+        resmon_result << last_runtime_seconds
+
+        last_update = LibXML::XML::Node.new("last_update")
+        last_update.content = Time.now.to_i.to_s
+        resmon_result << last_update
+
+        state = LibXML::XML::Node.new("state")
+        state.content = "OK"
+        resmon_result << state
+
+        resmon_results << resmon_result
+      end
+    
+      xml_document.root = resmon_results
+
+      munin.close
+     
+      @results = xml_document
+    end
+    fetch_thread.join if wait
+    @results
   end
 
   def call(env)
-    #req = Rack::Request.new(env)
-    munin = CirconusMunin.new
-
-    xml_document = LibXML::XML::Document.new
-    resmon_results = LibXML::XML::Node.new("ResmonResults")
-
-    munin.get_response("list")[0].split(" ").each do |service|
-      resmon_result = LibXML::XML::Node.new("ResmonResult")
-      resmon_result["module"] = "MUNIN"
-      resmon_result["service"] = service 
-
-      begin_time = Time.now
-      munin.get_response("fetch #{service}").each do |line|
-        line =~ /^(.+)\.value\s+(.+)$/
-        field = $1
-        value = $2
-        metric = LibXML::XML::Node.new("metric")
-        metric["name"] = field
-        metric.content = value.to_s
-        resmon_result << metric
-      end
-      end_time = Time.now
-      runtime = end_time - begin_time
-
-      last_runtime_seconds = LibXML::XML::Node.new("last_runtime_seconds")
-      last_runtime_seconds.content = runtime.to_s
-      resmon_result << last_runtime_seconds
-
-      last_update = LibXML::XML::Node.new("last_update")
-      last_update.content = Time.now.to_i.to_s
-      resmon_result << last_update
-
-      state = LibXML::XML::Node.new("state")
-      state.content = "OK"
-      resmon_result << state
-
-      resmon_results << resmon_result
+    req = Rack::Request.new(env)
+    case req.path
+    when /\/immediate$/
+      Rack::Response.new(fetch_results(true).to_s, 200).finish
+    else 
+      Rack::Response.new(@results.to_s, 200).finish
     end
-  
-    xml_document.root = resmon_results
-    
-    Rack::Response.new(xml_document.to_s, 200).finish
   end
 end
 
